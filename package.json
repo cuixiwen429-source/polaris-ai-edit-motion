@@ -1,0 +1,21 @@
+{
+  "name": "polaris-ai-edit-motion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "node src/render.mjs out/polaris_ai_edit_motion.mp4",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.354",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "4.0.354"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.10",
+    "typescript": "5.9.2"
+  }
+}
