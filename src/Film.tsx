@@ -1,741 +1,611 @@
 import React from 'react';
-import { AbsoluteFill, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, useCurrentFrame } from 'remotion';
 import {
   clamp,
-  ClipId,
-  COLORS,
   DURATION_IN_FRAMES,
   ease,
-  easeOutBack,
   FONT_MONO,
   FONT_SANS,
   FPS,
   lerp,
+  PIPELINE_STAGES,
   spring,
+  UI,
 } from './theme';
-import {
-  GradeState,
-  LeftDock,
-  LeftTab,
-  PreviewMonitor,
-  RightInspector,
-  TimelineClipState,
-  TimelineDock,
-  TopBar,
-} from './components/EditorPanels';
-import { ArmTarget, BotMood, PolarisBot } from './components/PolarisBot';
+import { AssetTabId, OpenChatCutUI } from './components/OpenChatCutUI';
+import { AgentFXLayer, FlyingClipSpec, LaserTether } from './components/AgentFX';
+import { CinemaSceneId } from './components/ClipArt';
 
 export { FPS, DURATION_IN_FRAMES };
 
-const formatTimecode = (sec: number) => {
-  const s = Math.max(0, sec);
-  const mins = Math.floor(s / 60)
+const formatProTimecode = (sec: number) => {
+  // Maps our 30s hyper-edit demo across the 03:30.33 AstraArc film timeline
+  const virtualSec = clamp(sec / 27, 0, 1) * 210.33;
+  const mins = Math.floor(virtualSec / 60)
     .toString()
     .padStart(2, '0');
-  const secs = Math.floor(s % 60)
+  const secs = Math.floor(virtualSec % 60)
     .toString()
     .padStart(2, '0');
-  const frames = Math.floor((s % 1) * FPS)
+  const cs = Math.floor((virtualSec % 1) * 100)
     .toString()
     .padStart(2, '0');
-  return `00:${mins}:${secs}:${frames}`;
+  return `00:${mins}:${secs}.${cs}`;
 };
 
-/**
- * Beat 1 (0.0s – 1.5s): Warm paper opening code window booting the Polaris AI Editor
- */
-const BootTerminal: React.FC<{ t: number }> = ({ t }) => {
-  const line1 = 'const 剪辑引擎 = 北极星AI.一键成片("AstraArc_Native_v5.ccproj")';
-  const line2 = '剪辑引擎.装载(时间轴, 预览窗, 调色与混音面板)';
-  const p1 = clamp(t / 0.65);
-  const p2 = clamp((t - 0.55) / 0.55);
-  const exit = ease((t - 1.2) / 0.3);
-
-  return (
-    <AbsoluteFill
-      style={{
-        background: COLORS.paper,
-        display: 'grid',
-        placeItems: 'center',
-        fontFamily: FONT_MONO,
-      }}
-    >
-      <div
-        style={{
-          width: 780,
-          borderRadius: 16,
-          background: COLORS.paperCard,
-          border: `2.8px solid ${COLORS.ink}`,
-          boxShadow: '8px 8px 0 rgba(27, 38, 64, 0.14)',
-          overflow: 'hidden',
-          transform: `scale(${(0.86 + 0.14 * spring(t)) * (1 + exit * 0.22)})`,
-          opacity: 1 - exit,
-        }}
-      >
-        <div
-          style={{
-            height: 36,
-            borderBottom: `2.2px solid ${COLORS.ink}`,
-            background: COLORS.paperSoft,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 14px',
-          }}
-        >
-          <div style={{ display: 'flex', gap: 7 }}>
-            {['#f27970', '#f6c95b', '#62cf8b'].map((c) => (
-              <span
-                key={c}
-                style={{
-                  width: 11,
-                  height: 11,
-                  borderRadius: '50%',
-                  background: c,
-                  border: `1.5px solid ${COLORS.ink}`,
-                }}
-              />
-            ))}
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 700, color: COLORS.inkSoft }}>
-            北极星 AI 剪辑 · OpenChatCut
-          </span>
-          <span style={{ width: 42 }} />
-        </div>
-        <div style={{ padding: '26px 28px', fontSize: 21, lineHeight: 1.9, color: COLORS.ink }}>
-          <div>
-            <span style={{ color: '#9c9286', marginRight: 18 }}>1</span>
-            <span style={{ color: '#4f46e5', fontWeight: 700 }}>
-              {line1.slice(0, Math.floor(p1 * line1.length))}
-            </span>
-          </div>
-          <div>
-            <span style={{ color: '#9c9286', marginRight: 18 }}>2</span>
-            <span style={{ color: COLORS.polarisNavy, fontWeight: 700 }}>
-              {line2.slice(0, Math.floor(p2 * line2.length))}
-            </span>
-            <span
-              style={{
-                display: 'inline-block',
-                width: 10,
-                height: 22,
-                background: COLORS.polarisCoral,
-                marginLeft: 4,
-                verticalAlign: 'middle',
-                opacity: Math.sin(t * 16) > 0 ? 1 : 0,
-              }}
-            />
-          </div>
-        </div>
-      </div>
-    </AbsoluteFill>
-  );
-};
+const ALL_TOOL_LOGS = [
+  { at: 1.0, time: '00.12s', call: 'pipeline.init("AstraArc_Native_v5")', color: UI.goldBright },
+  { at: 2.0, time: '00.28s', call: 'story.plan_5_acts(124 assets)', color: UI.goldBright },
+  { at: 3.3, time: '00.41s', call: 'voice_cut.trim_silence(26 VO)', color: UI.emerald },
+  { at: 4.8, time: '00.64s', call: 'audio.mount("Suno_210s.mp3")', color: UI.emerald },
+  { at: 7.9, time: '00.92s', call: 'ai_vision.clay_to_final(Act2)', color: UI.violet },
+  { at: 10.2, time: '01.18s', call: 'v2.inject_plates(18 cinema)', color: UI.violet },
+  { at: 12.7, time: '01.44s', call: 'motion_pack.batch_jsx(34 MG)', color: UI.magenta },
+  { at: 15.0, time: '01.72s', call: 'v3_v4.sync_logo_and_bilingual()', color: UI.magenta },
+  { at: 18.4, time: '02.05s', call: 'subtitle.auto_fix(Ctrl+Z)', color: UI.cyan },
+  { at: 20.6, time: '02.31s', call: 'imax_mix.beat_lock(-16 LUFS)', color: UI.exportOrange },
+  { at: 23.6, time: '02.60s', call: 'render.export_4k(60fps)', color: UI.emerald },
+];
 
 /**
- * Master 30-second (900 frames @ 30fps) Polaris AI Editing Motion Film
+ * Master 30-second (900 frames @ 30fps, 1920×1080) OpenChatCut · 北极星 AI 剪辑 Pipeline Motion Film
  */
 export const PolarisEditFilm: React.FC = () => {
   const frame = useCurrentFrame();
   const t = frame / FPS;
 
-  // Beat 1: Opening Code Boot (0.0s – 1.5s)
-  if (t < 1.48) {
-    return <BootTerminal t={t} />;
+  // 1. Prompt typing & streaming tool logs
+  const fullPrompt =
+    '一键全自动剪辑 AstraArc 北迹星品牌片 v5.0：口播净剪 + 34 组原生 JSX 动效 + AI 电影重绘 + Suno 交响 IMAX 鼓点卡点';
+  const promptTyped = fullPrompt.slice(0, Math.floor(clamp(t / 2.2) * fullPrompt.length));
+  const toolLogs = ALL_TOOL_LOGS.filter((l) => t >= l.at);
+
+  // 2. Active Pipeline Stage (0..5)
+  let activeStageIndex = 0;
+  for (let i = 0; i < PIPELINE_STAGES.length; i++) {
+    if (t >= PIPELINE_STAGES[i].start) activeStageIndex = i;
   }
 
-  // Editor entrance pop
-  const uiEnter = ease((t - 1.48) / 0.38);
+  // 3. Active & Completed Workflow Plugins
+  const activePlugins: string[] = [];
+  const donePlugins: string[] = [];
+  if (t >= 1.4 && t < 4.0) activePlugins.push('story');
+  if (t >= 4.0) donePlugins.push('story');
 
-  // Determine Left Tab
-  let activeTab: LeftTab = 'assets';
-  if (t >= 7.8 && t < 11.2) activeTab = 'transitions';
-  else if (t >= 11.2) activeTab = 'text';
+  if (t >= 3.2 && t < 7.8) activePlugins.push('voice-cut');
+  if (t >= 7.8) donePlugins.push('voice-cut');
 
-  // Ripple delete timing for the clay bad-take clip (5.2s – 7.8s)
-  const trashThrow = ease((t - 6.35) / 0.65);
-  const rippleClose = ease((t - 6.95) / 0.55);
+  if (t >= 7.8 && t < 12.6) activePlugins.push('ai-vision');
+  if (t >= 12.6) donePlugins.push('ai-vision');
 
-  // Video clips appearing in rapid succession during Beat 2 (1.8s – 4.6s)
-  const clayWidth = 140;
-  const shiftAfterClay = (1 - rippleClose) * clayWidth;
+  if (t >= 12.6 && t < 18.2) {
+    activePlugins.push('motion-pack');
+    activePlugins.push('highlight');
+  }
+  if (t >= 18.2) {
+    donePlugins.push('motion-pack', 'highlight');
+  }
 
-  const clips: TimelineClipState[] = [
-    {
-      id: 'dusk',
-      x: 10,
-      w: 190,
-      visible: t >= 2.0,
-    },
-    {
-      id: 'clay',
-      x: 204 + trashThrow * 180,
-      w: clayWidth - 4,
-      visible: t >= 2.55 && trashThrow < 0.98,
-      offsetY: -Math.sin(trashThrow * Math.PI) * 95 + trashThrow * 120,
-      rotate: trashThrow * 38,
-      opacity: 1 - trashThrow,
-    },
-    {
-      id: 'space',
-      x: 204 + shiftAfterClay,
-      w: 206,
-      visible: t >= 3.05,
-    },
-    {
-      id: 'matrix',
-      x: 414 + shiftAfterClay,
-      w: 216,
-      visible: t >= 3.55,
-    },
-    {
-      id: 'prism',
-      x: 634 + shiftAfterClay,
-      w: 206,
-      visible: t >= 4.0,
-    },
-    {
-      id: 'finale',
-      x: 844 + shiftAfterClay,
-      w: 220,
-      visible: t >= 4.4,
-    },
-  ];
+  if (t >= 18.2 && t < 23.4) activePlugins.push('knowledge');
+  if (t >= 23.4) donePlugins.push('knowledge');
 
-  // Audio waveform rollout (3.8s – 4.9s)
-  const audioWidthPct = ease((t - 3.75) / 1.15);
+  // 4. Active Asset Folders & Drawer Tab
+  let activeAssetTab: AssetTabId = 'assets';
+  if (t >= 3.6 && t < 7.6) activeAssetTab = 'transcript';
+  else if (t >= 18.2 && t < 20.4) activeAssetTab = 'subtitles';
 
-  // Transitions thrown (7.8s – 11.2s)
-  const transitionsPlaced =
-    t < 8.4 ? 0 : t < 9.1 ? 1 : t < 9.8 ? 2 : t < 10.5 ? 3 : 4;
-  const activeThrowIdx =
-    t >= 8.0 && t < 10.6 ? Math.floor((t - 8.0) / 0.65) : -1;
-  const throwLocal = activeThrowIdx >= 0 ? ((t - 8.0) % 0.65) / 0.65 : 0;
+  const activeFolders: string[] = [];
+  if (t >= 3.2 && t < 7.8) activeFolders.push('vo', 'music');
+  if (t >= 7.8 && t < 12.6) activeFolders.push('plates', 'clips');
+  if (t >= 12.6 && t < 18.2) activeFolders.push('mg', 'logos', 'clips');
+  if (t >= 20.4 && t < 23.6) activeFolders.push('music');
 
-  // Subtitle track & Ctrl+Z self-correction (11.2s – 15.2s)
-  const subtitleClipVisible = t >= 12.1;
-  const isTypoPhase = t >= 12.1 && t < 13.75;
-  const subtitleText = isTypoPhase
-    ? '让更好的商业想象发声 (错字!)'
-    : '让更好的商业想象，真正发生';
-  const showCtrlZ = t >= 13.2 && t < 14.35;
-  const showFixedStamp = t >= 13.85 && t < 15.15;
+  // 5. Progressive 6-Track Timeline Assembly (Blazing Domino Cascades!)
+  const v1Progress = ease((t - 2.2) / 2.2);
+  const a1Count = Math.round(clamp((t - 3.4) / 3.6) * 18);
+  const a2Progress = ease((t - 4.4) / 2.6);
 
-  // Color Grading Sliders (15.2s – 19.6s)
-  const grade: GradeState = {
-    contrast: 22 + 54 * ease((t - 15.4) / 0.9),
-    saturation:
-      t < 16.2
-        ? 100
-        : t < 17.5
-          ? lerp(100, 175, ease((t - 16.2) / 0.95))
-          : lerp(175, 118, ease((t - 17.5) / 0.8)),
-    bassGlow: 82 * ease((t - 18.2) / 0.95),
-    speed: 1.0 + 0.2 * ease((t - 18.8) / 0.6),
-    overdrive: t >= 16.95 && t < 17.65,
-  };
+  // V2 injects first 6 clips in Stage 3 (8.0–12.4s), then fires remaining 12 clips in Overdrive Stage 4 (12.6–16.8s)
+  const v2Stage3 = Math.round(clamp((t - 8.0) / 4.2) * 6);
+  const v2Stage4 = Math.round(clamp((t - 12.6) / 3.8) * 12);
+  const v2Count = Math.min(18, v2Stage3 + v2Stage4);
 
-  // Beat-Sync Cascade (19.6s – 23.6s)
-  const beatSyncProgress = ease((t - 20.4) / 1.9);
-  const beatPulse =
-    beatSyncProgress > 0.15 && t < 26.8
-      ? Math.pow(Math.max(0, Math.sin(t * Math.PI * 4)), 6)
+  // Momentary bad-take slice highlight on V2 at 8.4s – 9.6s
+  const v2TrimGapOpen =
+    t >= 8.35 && t < 9.75
+      ? ease((t - 8.35) / 0.35) * (1 - ease((t - 9.25) / 0.5))
       : 0;
 
-  // Export & Render Progress (23.6s – 26.8s)
+  // V3 Brand Logo bar + V4 15 Bilingual Subtitle clips slam in during Overdrive Stage 4
+  const v3Progress = ease((t - 13.4) / 2.2);
+  const v4Count = Math.round(clamp((t - 14.0) / 3.6) * 15);
+
+  // Beat-sync markers cascade across Suno symphony track in Stage 5
+  const beatMarkersProgress = ease((t - 20.5) / 2.3);
+  const beatPulse =
+    t >= 20.8 && t < 27.0
+      ? Math.pow(Math.max(0, Math.sin(t * Math.PI * 4.5)), 5)
+      : 0;
+
+  // LUT & color grade boost in Stage 5
+  const lutBoost = ease((t - 20.4) / 1.4);
+
+  // Playhead sweeps dynamically across the 6 tracks
+  const playheadPct =
+    t < 2.2
+      ? 0.02
+      : t < 7.8
+        ? lerp(0.02, 0.42, (t - 2.2) / 5.6)
+        : t < 12.6
+          ? lerp(0.24, 0.55, (t - 7.8) / 4.8)
+          : t < 18.2
+            ? lerp(0.15, 0.94, (t - 12.6) / 5.6)
+            : t < 23.4
+              ? lerp(0.32, 0.88, (t - 18.2) / 5.2)
+              : lerp(0.05, 0.98, (t - 23.4) / 6.6);
+
+  // 6. Live Cinema Monitor Scene & Subtitles
+  let cinemaScene: CinemaSceneId = 'shift';
+  if (t >= 8.2 && t < 12.8) cinemaScene = 'clay_morph';
+  else if (t >= 12.8 && t < 15.6) cinemaScene = 'matrix';
+  else if (t >= 15.6 && t < 18.2) cinemaScene = 'prism';
+  else if (t >= 18.2 && t < 20.6) cinemaScene = 'shift';
+  else if (t >= 20.6 && t < 23.2) cinemaScene = 'matrix';
+  else if (t >= 23.2) cinemaScene = 'finale';
+
+  const morphProgress = ease((t - 9.4) / 2.4);
+
+  const isSubtitleTypo = t >= 18.2 && t < 19.35;
+  let subtitleZh: string | undefined =
+    '在今天的商业世界里，企业面临的挑战，正在发生深刻变化。';
+  let subtitleEn: string | undefined =
+    "In today's business world, the challenges enterprises face are undergoing profound change.";
+
+  if (t < 3.4) {
+    subtitleZh = undefined;
+    subtitleEn = undefined;
+  } else if (cinemaScene === 'clay_morph') {
+    subtitleZh = 'AstraArc Design · 从概念白模到电影级商业空间，瞬时生成。';
+    subtitleEn = 'From raw architectural clay to cinema-grade flagship spaces in seconds.';
+  } else if (cinemaScene === 'matrix') {
+    subtitleZh = '34 组原生 JSX 动效模板并发装轨，打破传统重型摄制边界。';
+    subtitleEn = '34 native JSX motion graphics orchestrated concurrently across 6 tracks.';
+  } else if (cinemaScene === 'prism') {
+    subtitleZh = '让信息自动流动，让创意与算力精准折射商业价值。';
+    subtitleEn = 'Intelligence that turns strategic clarity into automated production.';
+  } else if (isSubtitleTypo) {
+    subtitleZh = '让更好的商业想象，真正发声。（AI 检测到错别字!）';
+    subtitleEn = 'Detecting typo mismatch -> invoking Auto-Fix...';
+  } else if (t >= 19.35) {
+    subtitleZh = '让更好的商业想象，真正发生。';
+    subtitleEn = 'Making greater commercial imagination truly happen.';
+  }
+
+  // Transition lens flash right on act switches
+  const cutTimes = [8.2, 12.8, 15.6, 18.2, 20.6, 23.2];
+  let transitionFlash = 0;
+  for (const ct of cutTimes) {
+    const dt = t - ct;
+    if (dt >= 0 && dt < 0.35) {
+      transitionFlash = Math.max(transitionFlash, 1 - dt / 0.35);
+    }
+  }
+
+  // 7. Export Progress (23.4s – 26.2s)
   let exportState: 'idle' | 'rendering' | 'done' = 'idle';
   let renderPct = 0;
-  if (t >= 24.0 && t < 26.1) {
+  if (t >= 23.6 && t < 25.9) {
     exportState = 'rendering';
     renderPct =
-      t < 25.2
-        ? lerp(0, 99.99, ease((t - 24.0) / 1.2))
-        : 99.99; // classic 0.9s 99.99% suspense!
-  } else if (t >= 26.1) {
+      t < 25.3
+        ? lerp(0, 99.99, ease((t - 23.6) / 1.7))
+        : 99.99;
+  } else if (t >= 25.9) {
     exportState = 'done';
     renderPct = 100;
   }
 
-  // Playhead motion across the timeline
-  let playheadX = 20;
-  if (t < 5.2) playheadX = lerp(20, 220, ease((t - 2.0) / 3.2));
-  else if (t < 7.8) playheadX = 265; // inspecting clay clip
-  else if (t < 11.2) playheadX = lerp(210, 620, ease((t - 7.8) / 3.4));
-  else if (t < 15.2) playheadX = lerp(320, 480, ease((t - 11.2) / 4.0));
-  else if (t < 19.6) playheadX = lerp(480, 740, ease((t - 15.2) / 4.4));
-  else if (t < 26.8) playheadX = lerp(120, 1020, (t - 19.6) / 7.2);
-  else playheadX = lerp(20, 1040, (t - 26.8) / 3.2);
-
-  // Determine Active Preview Clip based on playhead
-  let activeClip: ClipId | null = null;
-  if (t >= 2.0 && t < 5.2) activeClip = t < 3.2 ? 'dusk' : t < 4.2 ? 'space' : 'matrix';
-  else if (t >= 5.2 && t < 6.7) activeClip = 'clay';
-  else if (t >= 6.7 && t < 9.2) activeClip = 'space';
-  else if (t >= 9.2 && t < 11.2) activeClip = 'matrix';
-  else if (t >= 11.2 && t < 15.2) activeClip = 'prism';
-  else if (t >= 15.2 && t < 20.0) activeClip = 'space';
-  else if (t >= 20.0 && t < 24.0) activeClip = Math.floor(t * 2) % 2 === 0 ? 'matrix' : 'prism';
-  else if (t >= 24.0) activeClip = 'finale';
-
-  const transitionFlash =
-    activeThrowIdx >= 0 && throwLocal > 0.78 ? (1 - throwLocal) * 4 : 0;
-
-  // Dynamic Camera Zooms (matching reference's playful focus zooms!)
-  let camScale = 1;
+  // 8. Smooth 2D Cinema Camera Rig (Dynamic Macro Zooms, zero software-3D slowdown!)
+  let camScale = 1.0;
   let camX = 0;
   let camY = 0;
-  if (t >= 15.2 && t < 19.6) {
-    // Zoom into Right Inspector + Monitor during Color Grading
-    const z = ease((t - 15.2) / 0.45) * (1 - ease((t - 19.15) / 0.45));
-    camScale = 1 + 0.2 * z;
-    camX = -110 * z;
-    camY = 36 * z;
-  } else if (t >= 23.8 && t < 26.2) {
-    // Subtle zoom toward top-right Export button
-    const z = ease((t - 23.8) / 0.4) * (1 - ease((t - 25.8) / 0.4));
+
+  if (t < 3.2) {
+    // Stage 1: Macro push onto Left Agent Workbench
+    const z = ease(t / 1.0) * (1 - ease((t - 2.6) / 0.6));
+    camScale = 1 + 0.16 * z;
+    camX = 120 * z;
+    camY = -10 * z;
+  } else if (t >= 8.0 && t < 12.4) {
+    // Stage 3: Push onto Preview Monitor + V2 Clay->Final AI Morph
+    const z = ease((t - 8.0) / 0.6) * (1 - ease((t - 11.8) / 0.6));
     camScale = 1 + 0.14 * z;
-    camX = -75 * z;
-    camY = 48 * z;
+    camX = -95 * z;
+    camY = 38 * z;
+  } else if (t >= 12.6 && t < 18.0) {
+    // Stage 4: Overdrive dynamic heroic push
+    const z = ease((t - 12.6) / 0.5) * (1 - ease((t - 17.4) / 0.6));
+    camScale = 1 + 0.06 * z;
+    camY = -28 * z;
+  } else if (t >= 23.5 && t < 26.2) {
+    // Stage 6a: Zoom up-right to the glowing Export button!
+    const z = ease((t - 23.5) / 0.45) * (1 - ease((t - 25.7) / 0.5));
+    camScale = 1 + 0.18 * z;
+    camX = -130 * z;
+    camY = 78 * z;
   }
 
-  // Mascot Choreography (position, mood, stretchy arms, speech bubbles)
-  let botX = 210;
-  let botY = 468;
-  let mood: BotMood = 'happy';
-  let leftArm: ArmTarget | undefined;
-  let rightArm: ArmTarget | undefined;
+  // 9. Hyper-Kinetic Polaris Agent Choreography + Multi-Channel Laser Tethers + Flying Clip Cards!
+  let agentX = 465;
+  let agentY = 580;
+  let overdrive = false;
+  let mood: 'ready' | 'hyper' | 'slice' | 'fix' | 'cheer' = 'ready';
   let speech: string | undefined;
-  let speechSide: 'top' | 'right' | 'left' = 'top';
+  const tethers: LaserTether[] = [];
+  const flyingClips: FlyingClipSpec[] = [];
+  let sliceLine: { x: number; y1: number; y2: number; progress: number } | undefined;
 
-  if (t < 5.2) {
-    botX = lerp(190, 440, ease((t - 1.8) / 3.2));
-    botY = 462;
-    mood = 'focused';
-    if (t < 2.9) speech = '开工!';
-    const grabCycle = (t * 2.1) % 1;
-    leftArm = {
-      x: lerp(130, botX + 60, ease(grabCycle)),
-      y: lerp(170, 515, ease(grabCycle)),
-      grabbing: grabCycle < 0.65,
-    };
+  if (t < 3.2) {
+    agentX = lerp(320, 560, ease((t - 1.2) / 1.4));
+    agentY = lerp(840, 560, ease((t - 1.2) / 1.4));
+    mood = 'ready';
+    if (t >= 1.4) {
+      speech = '⚡ 北极星 Pipeline 启动！拆解 5 幕脚本';
+      tethers.push(
+        { x: 380, y: 528, color: UI.goldBright },
+        { x: 960, y: 895, color: UI.clipVideo }
+      );
+    }
   } else if (t < 7.8) {
-    botX = 230;
-    botY = 462;
-    mood = t > 6.2 ? 'focused' : 'shocked';
-    if (t < 6.25) {
-      speech = '这段白模在发呆!';
-      speechSide = 'right';
+    // Stage 2: 口播净剪 + Suno 交响铺底
+    const p = (t - 3.2) / 4.6;
+    agentX = lerp(560, 960, ease(p));
+    agentY = 665 + Math.sin(t * 6) * 14;
+    mood = 'hyper';
+    speech = '✂ 口播净剪 · 26 轨旁白去气口极速入轨！';
+    const targetTrackX = 650 + p * 1160;
+    tethers.push(
+      { x: 380, y: 288, color: UI.emerald }, // 口播净剪 plugin
+      { x: targetTrackX, y: 952, color: UI.emerald }, // A1 VO track
+      { x: 650 + ease((t - 4.4) / 2.6) * 1180, y: 1018, color: UI.goldBright } // A2 Suno track
+    );
+    // 6 rapid-fire flying emerald VO packets
+    for (let k = 0; k < 6; k++) {
+      const start = 3.4 + k * 0.58;
+      flyingClips.push({
+        id: `vo-${k}`,
+        sx: 380,
+        sy: 288,
+        ex: 720 + k * 195,
+        ey: 952,
+        progress: (t - start) / 0.55,
+        color: UI.emerald,
+        label: `VO S${String(k * 4 + 1).padStart(2, '0')}`,
+      });
     }
-    rightArm = {
-      x: lerp(340, 490, trashThrow),
-      y: lerp(515, 455, Math.sin(trashThrow * Math.PI)),
-      grabbing: trashThrow < 0.7,
-    };
-  } else if (t < 11.2) {
-    botX = 330;
-    botY = 462;
-    mood = 'proud';
-    if (activeThrowIdx >= 0) {
-      const targetXs = [302, 512, 732, 942];
-      const tx = targetXs[Math.min(3, activeThrowIdx)];
-      leftArm = {
-        x: lerp(150, tx, ease(throwLocal)),
-        y: lerp(180, 515, ease(throwLocal)),
-        grabbing: throwLocal < 0.5,
-      };
+  } else if (t < 12.6) {
+    // Stage 3: Plasma Slice + AI 影像 Clay->Final Morph
+    agentX = lerp(960, 1280, ease((t - 7.8) / 3.8));
+    agentY = 585;
+    mood = t < 9.5 ? 'slice' : 'hyper';
+    speech =
+      t < 9.5
+        ? '✂ 识别冗余停顿 · 等离子瞬切！'
+        : '🎨 AI 影像 · 商业空间白模 → 电影成图重绘！';
+    tethers.push(
+      { x: 380, y: 608, color: UI.violet }, // AI 影像 plugin
+      { x: 616, y: 360, color: UI.violet }, // 02 电影级视觉底板 folder
+      { x: 960 + morphProgress * 820, y: 360, color: UI.goldBright }, // Live morph scanline in monitor!
+      { x: 780 + ease((t - 8.2) / 4.0) * 440, y: 830, color: UI.magenta } // V2 track
+    );
+    if (t >= 8.55 && t < 9.3) {
+      sliceLine = { x: 985, y1: 785, y2: 875, progress: (t - 8.55) / 0.55 };
     }
-  } else if (t < 15.2) {
-    botX = 260;
-    botY = 462;
-    mood = isTypoPhase ? 'shocked' : 'proud';
-    if (showCtrlZ) {
-      speech = '瞬时撤销!';
-      speechSide = 'right';
+    for (let k = 0; k < 4; k++) {
+      const start = 8.4 + k * 0.85;
+      flyingClips.push({
+        id: `plate-${k}`,
+        sx: 616,
+        sy: 360,
+        ex: 720 + k * 135,
+        ey: 830,
+        progress: (t - start) / 0.52,
+        color: UI.violet,
+        label: `ACT0${k + 1}.PNG`,
+      });
     }
-    rightArm = { x: 350, y: 465, grabbing: showCtrlZ };
-  } else if (t < 19.6) {
-    botX = 340;
-    botY = 585;
-    mood = grade.overdrive ? 'shocked' : 'focused';
-    // Reach across the entire screen to drag the Right Inspector sliders!
-    const sliderY = t < 16.2 ? 154 : t < 18.2 ? 214 : 274;
-    const sliderX =
-      t < 16.2
-        ? lerp(1010, 1180, ease((t - 15.4) / 0.8))
-        : t < 17.5
-          ? lerp(1110, 1235, ease((t - 16.2) / 0.95))
-          : t < 18.2
-            ? lerp(1235, 1150, ease((t - 17.5) / 0.6))
-            : lerp(985, 1190, ease((t - 18.2) / 0.9));
-    rightArm = { x: sliderX, y: sliderY, grabbing: true };
-  } else if (t < 23.6) {
-    botX = lerp(480, 840, ease((t - 19.6) / 2.2));
-    botY = 560;
-    mood = 'cheer';
-    if (t >= 20.0 && t < 21.8) {
-      rightArm = { x: 1185, y: 678, grabbing: true };
+  } else if (t < 18.2) {
+    // Stage 4: OVERDRIVE MULTI-ARM BURST! (34× JSX + Logo + Bilingual Subtitles ALL AT ONCE!)
+    overdrive = true;
+    mood = 'hyper';
+    const p = (t - 12.6) / 5.6;
+    agentX = 1040 + Math.sin(t * 3.8) * 180;
+    agentY = 600 + Math.cos(t * 4.5) * 42;
+    speech = '🔥 OVERDRIVE · 34 组原生 JSX + 双语字幕 6 轨并发暴走！';
+    tethers.push(
+      { x: 380, y: 368, color: UI.magenta }, // 动态包装 plugin
+      { x: 472, y: 360, color: UI.magenta }, // 01 原生 JSX 动效 folder
+      { x: 680 + p * 1160, y: 710, color: UI.cyan }, // V4 bilingual subtitles
+      { x: 700 + ease((t - 13.4) / 2.2) * 1140, y: 770, color: UI.goldBright }, // V3 brand logo
+      { x: 980 + p * 860, y: 830, color: UI.magenta } // V2 JSX clips
+    );
+    // Rapid-fire storm of 10 holographic JSX & Subtitle cards!
+    for (let k = 0; k < 10; k++) {
+      const start = 12.7 + k * 0.44;
+      const toV4 = k % 2 === 1;
+      flyingClips.push({
+        id: `jsx-${k}`,
+        sx: toV4 ? 380 : 472,
+        sy: toV4 ? 368 : 360,
+        ex: 720 + k * 112,
+        ey: toV4 ? 710 : 830,
+        progress: (t - start) / 0.42,
+        color: toV4 ? UI.cyan : UI.magenta,
+        label: toV4 ? `字幕 S${String(k * 2 + 1).padStart(2, '0')}` : `JSX #${String(k * 3 + 2).padStart(2, '0')}`,
+      });
     }
-  } else if (t < 26.8) {
-    botX = 835;
-    botY = 520;
-    mood = exportState === 'done' ? 'cheer' : renderPct > 99 ? 'sweat' : 'focused';
-    if (t < 24.6) {
-      rightArm = { x: 1190, y: 34, grabbing: true };
-    } else if (renderPct > 99 && exportState === 'rendering') {
-      speech = '...';
-      speechSide = 'top';
+  } else if (t < 23.4) {
+    // Stage 5: 字幕瞬时纠错 (⌘Z) + IMAX 鼓点卡点 & LUT 调色
+    agentX = t < 20.4 ? 1160 : lerp(1160, 1460, ease((t - 20.4) / 2.2));
+    agentY = 595;
+    mood = t < 20.4 ? 'fix' : 'hyper';
+    overdrive = t >= 20.6;
+    speech =
+      t < 20.4
+        ? '⚡ AI 质检捕获错字 · ⌘Z 瞬时精校！'
+        : '🔊 IMAX -16.0 LUFS · Suno 鼓点全轨毫秒级对齐！';
+    if (t < 20.4) {
+      tethers.push(
+        { x: 1315, y: 550, color: UI.cyan },
+        { x: 1180, y: 710, color: UI.emerald }
+      );
+    } else {
+      tethers.push(
+        { x: 380, y: 688, color: UI.exportOrange },
+        { x: 1320, y: 340, color: UI.goldBright },
+        { x: 660 + beatMarkersProgress * 1200, y: 1018, color: UI.goldBright },
+        { x: 660 + beatMarkersProgress * 1180, y: 830, color: UI.magenta }
+      );
     }
+  } else if (t < 26.2) {
+    // Stage 6a: Hyper-Speed 4K Render & Export
+    agentX = 1480;
+    agentY = 480;
+    mood = exportState === 'done' ? 'cheer' : 'hyper';
+    speech =
+      exportState === 'done'
+        ? '✨ 叮！4K 60fps 电影成片导出完成！'
+        : renderPct > 99
+          ? '⏳ 99.99% 最后一帧校准...'
+          : '🚀 GPU 硬件加速 · 极速渲染中...';
+    tethers.push({ x: 1790, y: 27, color: exportState === 'done' ? UI.emerald : UI.exportOrange });
   } else {
-    // Final celebration beside the sticky note & showcase monitor
-    botX = 1015;
-    botY = 535;
+    // Stage 6b: Triumphant Showcase
+    agentX = 1765;
+    agentY = 535;
     mood = 'cheer';
-    rightArm = { x: 1068, y: 472, grabbing: false };
+    speech = '✦ 全流程自动剪辑完成！';
   }
-
-  // Final showcase fade of background editor (26.8s – 30.0s)
-  const finaleFade = ease((t - 26.8) / 0.55);
 
   return (
     <AbsoluteFill
       style={{
-        background: COLORS.paper,
+        background: '#050608',
         overflow: 'hidden',
         fontFamily: FONT_SANS,
       }}
     >
-      {/* Main NLE Stage with dynamic camera zoom */}
+      {/* Smooth Cinema Camera Rig wrapping OpenChatCut UI + Agent FX */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          transform: `scale(${uiEnter * camScale}) translate(${camX}px, ${camY}px)`,
+          transform: `scale(${camScale}) translate(${camX}px, ${camY}px)`,
           transformOrigin: '50% 50%',
-          opacity: 1 - finaleFade * 0.65,
         }}
       >
-        <TopBar
-          timecode={formatTimecode(t)}
+        <OpenChatCutUI
+          t={t}
+          timecode={formatProTimecode(t)}
+          activePlugins={activePlugins}
+          donePlugins={donePlugins}
+          activeFolders={activeFolders}
+          activeAssetTab={activeAssetTab}
+          promptTyped={promptTyped}
+          toolLogs={toolLogs}
+          cinemaScene={cinemaScene}
+          morphProgress={morphProgress}
+          subtitleZh={subtitleZh}
+          subtitleEn={subtitleEn}
+          subtitleError={isSubtitleTypo}
+          lutBoost={lutBoost}
+          beatPulse={beatPulse}
+          transitionFlash={transitionFlash}
+          v1Progress={v1Progress}
+          v2Count={v2Count}
+          v2TrimGapOpen={v2TrimGapOpen}
+          v3Progress={v3Progress}
+          v4Count={v4Count}
+          a1Count={a1Count}
+          a2Progress={a2Progress}
+          beatMarkersProgress={beatMarkersProgress}
+          playheadPct={playheadPct}
           exportState={exportState}
           renderPct={renderPct}
+          activeStageIndex={activeStageIndex}
         />
-        <LeftDock
-          activeTab={activeTab}
+
+        <AgentFXLayer
           t={t}
-          highlightIdx={activeThrowIdx >= 0 ? activeThrowIdx % 6 : -1}
-        />
-        <PreviewMonitor
-          activeClip={activeClip}
-          t={t}
-          grade={grade}
-          subtitle={subtitleClipVisible ? subtitleText : undefined}
-          subtitleTypo={isTypoPhase}
-          transitionFlash={transitionFlash}
-          beatPulse={beatPulse}
-          showSocialOverlay={t >= 26.8}
-        />
-        <RightInspector grade={grade} />
-        <TimelineDock
-          clips={clips}
-          transitionsPlaced={transitionsPlaced}
-          subtitleClipVisible={subtitleClipVisible}
-          subtitleText={subtitleText}
-          audioWidthPct={audioWidthPct}
-          beatSyncProgress={beatSyncProgress}
-          playheadX={playheadX}
-          t={t}
+          agentX={agentX}
+          agentY={agentY}
+          overdrive={overdrive}
+          mood={mood}
+          tethers={tethers}
+          flyingClips={flyingClips}
+          speech={speech}
+          sliceLine={sliceLine}
         />
 
-        {/* Trash Can during Beat 3 (6.2s – 7.6s) */}
-        {t >= 6.2 && t < 7.6 && (
+        {/* Holographic ⌘Z AUTO-FIX Keycap (18.7s – 19.6s) */}
+        {t >= 18.7 && t < 19.7 && (
           <div
             style={{
               position: 'absolute',
-              left: 525,
-              top: 560,
-              width: 74,
-              height: 88,
-              borderRadius: '6px 6px 14px 14px',
-              background: '#d6d3cb',
-              border: `2.6px solid ${COLORS.ink}`,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform: `scale(${easeOutBack((t - 6.2) / 0.25)})`,
-              zIndex: 20,
-            }}
-          >
-            <span style={{ fontSize: 32 }}>🗑️</span>
-            {t >= 6.85 && (
-              <span
-                style={{
-                  position: 'absolute',
-                  right: -86,
-                  bottom: 10,
-                  fontSize: 28,
-                  fontWeight: 900,
-                  color: COLORS.polarisGoldBright,
-                  WebkitTextStroke: `1.5px ${COLORS.ink}`,
-                }}
-              >
-                哐当!
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Comic Callout: 唰! */}
-        {t >= 6.35 && t < 7.1 && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 610,
-              top: 405,
-              fontSize: 34,
-              fontWeight: 900,
-              color: COLORS.polarisCoral,
-              WebkitTextStroke: `1.6px ${COLORS.ink}`,
-              transform: `rotate(-10deg) scale(${spring(t - 6.35)})`,
-              zIndex: 22,
-            }}
-          >
-            唰!
-          </div>
-        )}
-
-        {/* Comic Callout: 空心入网! */}
-        {t >= 9.0 && t < 10.6 && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 445,
-              top: 398,
-              fontSize: 30,
-              fontWeight: 900,
-              color: COLORS.polarisGoldBright,
-              WebkitTextStroke: `1.5px ${COLORS.ink}`,
-              transform: `rotate(-6deg) scale(${spring(t - 9.0)})`,
-              zIndex: 22,
-            }}
-          >
-            空心入网!
-          </div>
-        )}
-
-        {/* Giant Keycap: Ctrl+Z */}
-        {showCtrlZ && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 200,
-              top: 520,
+              left: 1180,
+              top: 410,
               padding: '14px 28px',
               borderRadius: 14,
-              background: '#fffdf8',
-              border: `3px solid ${COLORS.ink}`,
-              boxShadow: `0 8px 0 ${COLORS.ink}`,
+              background: 'rgba(13, 17, 28, 0.94)',
+              border: `2.5px solid ${UI.cyan}`,
+              boxShadow: `0 0 36px ${UI.cyan}88, 0 8px 0 #0e3a5c`,
+              color: '#ffffff',
               fontFamily: FONT_MONO,
-              fontSize: 34,
-              fontWeight: 900,
-              color: COLORS.ink,
-              transform: `scale(${spring(t - 13.2)})`,
-              zIndex: 24,
-            }}
-          >
-            Ctrl + Z
-          </div>
-        )}
-
-        {/* Green Ink Seal: 已修正 */}
-        {showFixedStamp && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 775,
-              top: 170,
-              padding: '8px 22px',
-              border: '4px solid #22a06b',
-              borderRadius: 10,
-              color: '#22a06b',
-              fontSize: 30,
-              fontWeight: 900,
-              letterSpacing: 3,
-              background: 'rgba(255, 253, 248, 0.88)',
-              transform: `rotate(-9deg) scale(${spring(t - 13.85)})`,
-              zIndex: 25,
-            }}
-          >
-            已修正 ✓
-          </div>
-        )}
-
-        {/* Comic Callout: 饱和度:拉满 */}
-        {grade.overdrive && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 560,
-              top: 105,
               fontSize: 32,
               fontWeight: 900,
-              color: COLORS.polarisGoldBright,
-              WebkitTextStroke: `1.8px ${COLORS.ink}`,
-              transform: `scale(${spring(t - 16.95)})`,
-              zIndex: 25,
+              transform: `scale(${spring(t - 18.7)})`,
+              zIndex: 45,
             }}
           >
-            饱和度：拉满!!
+            ⌘Z · AUTO-FIX
           </div>
         )}
 
-        {/* Comic Callout: 卡点! */}
-        {t >= 20.7 && t < 22.4 && (
+        {/* Emerald Verified Stamp: 已自动精校 ✓ (19.35s – 20.5s) */}
+        {t >= 19.35 && t < 20.5 && (
           <div
             style={{
               position: 'absolute',
-              left: 225,
-              top: 565,
-              fontSize: 34,
+              left: 1460,
+              top: 390,
+              padding: '10px 24px',
+              borderRadius: 12,
+              background: 'rgba(6, 28, 18, 0.92)',
+              border: `3px solid ${UI.emerald}`,
+              boxShadow: `0 0 30px ${UI.emerald}77`,
+              color: UI.emerald,
+              fontSize: 28,
               fontWeight: 900,
-              color: COLORS.polarisGoldBright,
-              WebkitTextStroke: `1.6px ${COLORS.ink}`,
-              transform: `rotate(-8deg) scale(${spring(t - 20.7)})`,
-              zIndex: 25,
+              letterSpacing: 3,
+              transform: `rotate(-8deg) scale(${spring(t - 19.35)})`,
+              zIndex: 46,
             }}
           >
-            AI 卡点!
+            已自动精校 ✓
           </div>
         )}
 
-        {/* Comic Callout: 叮! */}
-        {t >= 26.1 && t < 26.85 && (
+        {/* Floating Live Grading & IMAX Beat-Sync HUD Pill (20.5s – 23.4s) */}
+        {t >= 20.5 && t < 23.4 && (
           <div
             style={{
               position: 'absolute',
-              left: 880,
-              top: 76,
-              fontSize: 40,
-              fontWeight: 900,
-              color: '#4ade80',
-              WebkitTextStroke: `1.8px ${COLORS.ink}`,
-              transform: `rotate(8deg) scale(${spring(t - 26.1)})`,
-              zIndex: 26,
+              left: 920,
+              top: 528,
+              padding: '12px 22px',
+              borderRadius: 14,
+              background: 'rgba(12, 14, 22, 0.94)',
+              border: `1.8px solid ${UI.goldBright}`,
+              boxShadow: `0 10px 36px rgba(0,0,0,0.65), 0 0 26px ${UI.goldBright}44`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 22,
+              fontFamily: FONT_MONO,
+              fontSize: 14,
+              color: '#ffffff',
+              transform: `scale(${spring(t - 20.5)})`,
+              zIndex: 46,
             }}
           >
-            叮!
+            <span style={{ color: UI.goldBright, fontWeight: 800 }}>✦ LUT: ASTRAARC GOLD</span>
+            <span style={{ color: UI.emerald, fontWeight: 800 }}>LOUDNESS: -16.0 LUFS</span>
+            <span style={{ color: UI.magenta, fontWeight: 800 }}>BEAT LOCK: 128 BPM</span>
           </div>
-        )}
-
-        {/* Mascot inside NLE (before finale fade) */}
-        {t < 26.8 && (
-          <PolarisBot
-            x={botX}
-            y={botY}
-            t={t}
-            mood={mood}
-            leftArm={leftArm}
-            rightArm={rightArm}
-            speech={speech}
-            speechSide={speechSide}
-          />
         )}
       </div>
 
-      {/* Beat 9 (26.8s – 30.0s): Finale Showcase Monitor + Hand-drawn Sticky Note + Cheering Mascot */}
-      {t >= 26.8 && (
-        <AbsoluteFill style={{ pointerEvents: 'none' }}>
-          {/* Elevated Showcase Monitor */}
+      {/* Stage 6b (26.3s – 30.0s): Sleek OpenChatCut · 北极星 AI Pipeline Finale Summary Card */}
+      {t >= 26.3 && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 428,
+            top: 96,
+            width: 430,
+            borderRadius: 18,
+            background: 'rgba(12, 15, 24, 0.94)',
+            border: `2px solid ${UI.goldBright}`,
+            boxShadow: `0 24px 64px rgba(0,0,0,0.75), 0 0 42px ${UI.goldBright}33`,
+            padding: '24px 26px',
+            boxSizing: 'border-box',
+            transform: `translateY(${(1 - spring(t - 26.3)) * 36}px) scale(${0.92 + 0.08 * spring(t - 26.3)})`,
+            zIndex: 60,
+          }}
+        >
           <div
             style={{
-              position: 'absolute',
-              left: 465,
-              top: 112,
-              transform: `scale(${1.08 + 0.04 * spring(t - 26.8)})`,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '4px 12px',
+              borderRadius: 999,
+              background: `${UI.emerald}22`,
+              border: `1px solid ${UI.emerald}`,
+              color: UI.emerald,
+              fontFamily: FONT_MONO,
+              fontSize: 12,
+              fontWeight: 800,
+              marginBottom: 14,
             }}
           >
-            <div style={{ position: 'relative', left: -332, top: -68 }}>
-              <PreviewMonitor
-                activeClip="finale"
-                t={t}
-                grade={grade}
-                subtitle="让更好的商业想象，真正发生"
-                showSocialOverlay
-              />
-            </div>
+            ⚡ PIPELINE COMPLETED · 03:30.33
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: '#ffffff', letterSpacing: -0.6 }}>
+            北极星 AI 剪辑
+          </div>
+          <div style={{ fontSize: 14, color: UI.gold, marginTop: 4, marginBottom: 18 }}>
+            OpenChatCut 全自动多轨生产管线
           </div>
 
-          {/* Hand-drawn Cream Sticky Note */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            {[
+              { k: '调度插件', v: '6 大并发', c: UI.goldBright },
+              { k: '装轨素材', v: '124 项', c: UI.cyan },
+              { k: '原生动效', v: '34 组 JSX', c: UI.magenta },
+              { k: '声音混音', v: '26 VO + IMAX', c: UI.emerald },
+            ].map((item) => (
+              <div
+                key={item.k}
+                style={{
+                  borderRadius: 10,
+                  background: '#161a26',
+                  border: `1px solid ${UI.borderLight}`,
+                  padding: '10px 12px',
+                }}
+              >
+                <div style={{ fontSize: 11, color: UI.textSecondary }}>{item.k}</div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: item.c, fontFamily: FONT_MONO, marginTop: 2 }}>
+                  {item.v}
+                </div>
+              </div>
+            ))}
+          </div>
+
           <div
             style={{
-              position: 'absolute',
-              left: 62,
-              top: 158,
-              width: 348,
-              height: 316,
-              borderRadius: 16,
-              background: '#fffdf4',
-              border: `3px solid ${COLORS.ink}`,
-              boxShadow: '10px 10px 0 rgba(27, 38, 64, 0.16)',
-              padding: '34px 28px',
-              boxSizing: 'border-box',
-              transform: `rotate(-3deg) scale(${spring(t - 26.9)})`,
+              borderTop: `1px solid ${UI.borderLight}`,
+              paddingTop: 12,
               display: 'flex',
-              flexDirection: 'column',
               justifyContent: 'space-between',
+              alignItems: 'center',
+              fontSize: 12,
+              color: UI.textSecondary,
             }}
           >
-            {/* Tape strip */}
-            <div
-              style={{
-                position: 'absolute',
-                left: 122,
-                top: -14,
-                width: 104,
-                height: 26,
-                background: 'rgba(234, 209, 160, 0.85)',
-                border: `2px solid ${COLORS.ink}`,
-                borderRadius: 4,
-              }}
-            />
-            <div style={{ fontSize: 28, fontWeight: 800, color: COLORS.inkSoft }}>
-              30 秒一键成片，
-            </div>
-            <div
-              style={{
-                fontSize: 42,
-                fontWeight: 900,
-                color: COLORS.polarisNavy,
-                letterSpacing: -1,
-                borderBottom: `4px solid ${COLORS.polarisGoldBright}`,
-                paddingBottom: 6,
-              }}
-            >
-              北极星 AI 剪辑
-            </div>
-            <div
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: COLORS.inkSoft,
-                textAlign: 'right',
-              }}
-            >
-              — OpenChatCut 收工 ✨
-            </div>
+            <span>AstraArc_Partners_Native_v5.ccproj</span>
+            <span style={{ color: UI.goldBright, fontWeight: 800 }}>4K 60fps ✓</span>
           </div>
-
-          <PolarisBot
-            x={botX}
-            y={botY}
-            t={t}
-            mood="cheer"
-            rightArm={rightArm}
-            speech="拿捏了!"
-            speechSide="top"
-            scale={1.15}
-          />
-        </AbsoluteFill>
+        </div>
       )}
     </AbsoluteFill>
   );

@@ -17,7 +17,9 @@ const r = spawnSync(
     'PolarisAIEditMotion',
     output,
     '--concurrency=4',
-    '--crf=16',
+    '--image-format=jpeg',
+    '--jpeg-quality=85',
+    '--crf=18',
     '--pixel-format=yuv420p',
   ],
   { cwd: root, stdio: 'inherit' }

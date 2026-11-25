@@ -6,8 +6,8 @@ export const Root: React.FC = () => (
   <Composition
     id="PolarisAIEditMotion"
     component={PolarisEditFilm}
-    width={1280}
-    height={720}
+    width={1920}
+    height={1080}
     fps={FPS}
     durationInFrames={DURATION_IN_FRAMES}
   />

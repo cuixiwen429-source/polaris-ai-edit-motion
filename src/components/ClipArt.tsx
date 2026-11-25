@@ -1,244 +1,416 @@
 import React from 'react';
-import { ClipId, COLORS, FONT_MONO, FONT_SANS } from '../theme';
+import { clamp, FONT_MONO, FONT_SANS, FONT_SERIF, UI } from '../theme';
+
+export type CinemaSceneId = 'shift' | 'clay_morph' | 'matrix' | 'prism' | 'finale';
 
 /**
- * Bespoke illustrated artwork for each clip from AstraArc_Partners_Native_v5.ccproj.
- * Renders crisply at both thumbnail size (in asset bin / timeline) and full monitor size.
+ * Ultra-luxury live Cinema Preview playing inside OpenChatCut's "预览" Monitor.
+ * Faithfully echoes the screenshot's "SHIFT / 商业世界正在发生深刻变化" editorial gold style,
+ * plus live Clay->Final AI laser morph, 16-screen IMAX Matrix, Neural Prism, and Polaris Finale!
  */
-export const ClipArt: React.FC<{
-  id: ClipId;
-  t?: number;
-  isMonitor?: boolean;
-}> = ({ id, t = 0, isMonitor = false }) => {
-  switch (id) {
-    case 'dusk':
-      // Act 1: 暮色地标建筑 — deep twilight skyline + glowing Polaris North Star
-      return (
-        <svg viewBox="0 0 320 180" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <linearGradient id="duskSky" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0d1730" />
-              <stop offset="55%" stopColor="#1e3159" />
-              <stop offset="100%" stopColor="#5a4966" />
-            </linearGradient>
-          </defs>
-          <rect width="320" height="180" fill="url(#duskSky)" />
-          {/* Polaris star */}
-          <g transform={`translate(240, 42) scale(${1 + 0.08 * Math.sin(t * 4)})`}>
-            <path d="M0 -18 C2 -4 4 -2 18 0 C4 2 2 4 0 18 C-2 4 -4 2 -18 0 C-4 -2 -2 -4 0 -18 Z" fill="#f6c95b" />
-            <circle r="24" fill="#f6c95b" opacity="0.18" />
-          </g>
-          {/* Skyline towers */}
-          {[
-            [14, 96, 36, 84],
-            [56, 76, 42, 104],
-            [106, 52, 46, 128],
-            [160, 82, 38, 98],
-            [206, 68, 44, 112],
-            [258, 92, 46, 88],
-          ].map(([x, y, w, h], idx) => (
-            <g key={idx}>
-              <rect x={x} y={y} width={w} height={h} rx="3" fill={idx === 2 ? '#16233d' : '#101a30'} stroke="#2d436e" strokeWidth="1.5" />
-              {[0, 1, 2, 3].map((r) => (
-                <rect
-                  key={r}
-                  x={x + 8}
-                  y={y + 12 + r * 18}
-                  width={w - 16}
-                  height="5"
-                  rx="2"
-                  fill="#ead1a0"
-                  opacity={(idx + r) % 2 === 0 ? 0.85 : 0.35}
-                />
+export const CinemaPreview: React.FC<{
+  scene: CinemaSceneId;
+  t: number;
+  morphProgress?: number; // 0 = clay wireframe, 1 = golden final
+  subtitleZh?: string;
+  subtitleEn?: string;
+  subtitleError?: boolean;
+  lutBoost?: number; // 0..1
+  beatPulse?: number; // 0..1
+  transitionFlash?: number; // 0..1
+  showSafeFrame?: boolean;
+}> = ({
+  scene,
+  t,
+  morphProgress = 1,
+  subtitleZh,
+  subtitleEn,
+  subtitleError = false,
+  lutBoost = 0,
+  beatPulse = 0,
+  transitionFlash = 0,
+  showSafeFrame = true,
+}) => {
+  const filter = `contrast(${1 + lutBoost * 0.16}) saturate(${1 + lutBoost * 0.25}) brightness(${1 + beatPulse * 0.12})`;
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        background: '#050609',
+        overflow: 'hidden',
+        filter,
+        fontFamily: FONT_SANS,
+      }}
+    >
+      {/* Subtle animated starfield dust */}
+      <svg width="100%" height="100%" viewBox="0 0 960 540" style={{ position: 'absolute', inset: 0, opacity: 0.45 }}>
+        {Array.from({ length: 34 }, (_, i) => {
+          const sx = (i * 97 + t * 8) % 960;
+          const sy = (i * 53) % 540;
+          const r = i % 4 === 0 ? 1.8 : 1;
+          return <circle key={i} cx={sx} cy={sy} r={r} fill={i % 3 === 0 ? UI.gold : '#ffffff'} opacity={0.4 + 0.4 * Math.sin(t * 3 + i)} />;
+        })}
+      </svg>
+
+      {/* SCENE 1: SHIFT (Directly echoing the exact frame in the user's OpenChatCut screenshot!) */}
+      {scene === 'shift' && (
+        <div style={{ position: 'absolute', inset: 0 }}>
+          {/* Architectural dusk glow background */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background:
+                'radial-gradient(ellipse at 52% 45%, rgba(234, 209, 160, 0.18) 0%, rgba(20, 24, 38, 0.5) 45%, #050609 80%)',
+            }}
+          />
+          {/* Subtle architectural skyline grid behind SHIFT */}
+          <svg width="100%" height="100%" viewBox="0 0 960 540" style={{ position: 'absolute', inset: 0, opacity: 0.28 }}>
+            <path d="M120 540 L260 110 L420 540 M480 540 L630 80 L790 540" stroke={UI.gold} strokeWidth="1" fill="none" />
+            <line x1="120" y1="150" x2="840" y2="150" stroke={UI.gold} strokeWidth="0.8" opacity="0.5" />
+            <line x1="120" y1="340" x2="840" y2="340" stroke={UI.gold} strokeWidth="0.8" opacity="0.5" />
+          </svg>
+
+          {/* Iconic Gold Serif SHIFT Title Lockup */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingBottom: 38,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: FONT_SERIF,
+                fontSize: 106,
+                fontWeight: 600,
+                letterSpacing: 18,
+                color: UI.gold,
+                textShadow: '0 8px 40px rgba(234, 209, 160, 0.32)',
+                transform: `scale(${1 + beatPulse * 0.03})`,
+              }}
+            >
+              SHIFT
+            </div>
+            <div
+              style={{
+                width: 440,
+                height: 1,
+                background: `linear-gradient(90deg, transparent, ${UI.gold}aa, transparent)`,
+                margin: '10px 0 16px',
+              }}
+            />
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 500,
+                letterSpacing: 6,
+                color: '#f8f2e7',
+                opacity: 0.92,
+              }}
+            >
+              商业世界正在发生深刻变化
+            </div>
+          </div>
+
+          {/* Bottom-right live PiP data dashboard (matching screenshot!) */}
+          <div
+            style={{
+              position: 'absolute',
+              right: 26,
+              bottom: 62,
+              width: 174,
+              height: 104,
+              borderRadius: 10,
+              background: 'rgba(12, 14, 20, 0.92)',
+              border: `1.5px solid ${UI.gold}66`,
+              padding: 10,
+              boxSizing: 'border-box',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+            }}
+          >
+            <div style={{ fontFamily: FONT_MONO, fontSize: 9, color: UI.gold, marginBottom: 6 }}>
+              RADAR // MARKET SHIFT
+            </div>
+            <svg width="150" height="62" viewBox="0 0 150 62">
+              <polyline
+                fill="none"
+                stroke={UI.emerald}
+                strokeWidth="2"
+                points={`0,52 25,44 50,47 78,28 108,32 145,${10 + Math.sin(t * 4) * 5}`}
+              />
+              <polyline
+                fill="none"
+                stroke={UI.exportOrange}
+                strokeWidth="1.5"
+                strokeDasharray="3 3"
+                points="0,42 35,38 75,35 115,24 145,18"
+              />
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* SCENE 2: AI VISION — LIVE CLAY WIREFRAME -> GOLDEN CINEMA MORPH */}
+      {scene === 'clay_morph' && (
+        <div style={{ position: 'absolute', inset: 0 }}>
+          {/* Left side: Monochrome Clay Wireframe */}
+          <svg viewBox="0 0 960 540" width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
+            <rect width="960" height="540" fill="#181a20" />
+            <g stroke="#4b5563" strokeWidth="1.5" fill="none" opacity="0.7">
+              <path d="M240 540 L240 210 A240 240 0 0 1 720 210 L720 540" />
+              <path d="M320 540 L320 240 A160 160 0 0 1 640 240 L640 540" />
+              <rect x="420" y="340" width="120" height="160" />
+              <ellipse cx="480" cy="300" rx="34" ry="44" />
+              {Array.from({ length: 12 }, (_, i) => (
+                <line key={i} x1={i * 88} y1="0" x2={i * 88} y2="540" opacity="0.25" />
               ))}
             </g>
-          ))}
-          {isMonitor && (
-            <text x="20" y="34" fill="#ead1a0" fontFamily={FONT_MONO} fontSize="11" letterSpacing="1.5" opacity="0.85">
-              ACT 01 // PROLOGUE DUSK
+            <text x="36" y="54" fill="#9ca3af" fontFamily={FONT_MONO} fontSize="15">
+              RAW CLAY // 商业空间白模
             </text>
-          )}
-        </svg>
-      );
+          </svg>
 
-    case 'clay':
-      // Act 2 Draft: 白模停顿 — flat gray unrendered wireframe with loading spinner ("冗余停顿!")
-      return (
-        <svg viewBox="0 0 320 180" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <rect width="320" height="180" fill="#b7b9bc" />
-          <path d="M0 130 L320 130 M160 0 L160 180" stroke="#9aa0a6" strokeWidth="1.5" strokeDasharray="6 6" />
-          <rect x="85" y="48" width="150" height="84" rx="8" fill="#cfd2d6" stroke="#7d838a" strokeWidth="2" />
-          <g transform={`translate(160, 90) rotate(${t * 180})`}>
-            <circle r="18" fill="none" stroke="#5f666e" strokeWidth="4" strokeDasharray="70 40" strokeLinecap="round" />
-          </g>
-          {isMonitor && (
-            <text x="160" y="154" textAnchor="middle" fill="#444b52" fontFamily={FONT_SANS} fontSize="14" fontWeight="700">
-              白模冗余停顿中...
-            </text>
-          )}
-        </svg>
-      );
+          {/* Right/Clipped side: Rendered Golden Architectural Boutique */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              clipPath: `inset(0 ${(1 - clamp(morphProgress)) * 100}% 0 0)`,
+            }}
+          >
+            <svg viewBox="0 0 960 540" width="100%" height="100%">
+              <defs>
+                <radialGradient id="boutiqueLight" cx="50%" cy="42%" r="58%">
+                  <stop offset="0%" stopColor="#f6c95b" stopOpacity="0.48" />
+                  <stop offset="55%" stopColor="#35281c" stopOpacity="0.92" />
+                  <stop offset="100%" stopColor="#0a090c" />
+                </radialGradient>
+              </defs>
+              <rect width="960" height="540" fill="url(#boutiqueLight)" />
+              <path d="M240 540 L240 210 A240 240 0 0 1 720 210 L720 540 Z" fill="#171310" stroke={UI.gold} strokeWidth="3" />
+              <path d="M320 540 L320 240 A160 160 0 0 1 640 240 L640 540 Z" fill="#2c2219" stroke={UI.gold} strokeWidth="2" opacity="0.85" />
+              <rect x="420" y="340" width="120" height="160" fill="#dfd2bc" stroke="#524334" strokeWidth="2" />
+              <ellipse cx="480" cy="300" rx="34" ry="44" fill="#de6e56" stroke={UI.goldBright} strokeWidth="2.5" />
+              <text x="36" y="54" fill={UI.goldBright} fontFamily={FONT_MONO} fontSize="15" fontWeight="700">
+                ✦ AI FINAL RENDER // ASTRAARC DESIGN
+              </text>
+            </svg>
+          </div>
 
-    case 'space':
-      // Act 2 Final: 商业空间成图 — warm golden architectural gallery + sculptural arch
-      return (
-        <svg viewBox="0 0 320 180" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <defs>
-            <linearGradient id="spaceWall" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#26201a" />
-              <stop offset="50%" stopColor="#463728" />
-              <stop offset="100%" stopColor="#1b1612" />
-            </linearGradient>
-            <radialGradient id="spaceGlow" cx="50%" cy="40%" r="55%">
-              <stop offset="0%" stopColor="#f6c95b" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#f6c95b" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          <rect width="320" height="180" fill="url(#spaceWall)" />
-          <rect width="320" height="180" fill="url(#spaceGlow)" />
-          <path d="M72 180 L72 78 A88 88 0 0 1 248 78 L248 180 Z" fill="#181410" stroke="#ead1a0" strokeWidth="2.5" />
-          <path d="M104 180 L104 90 A56 56 0 0 1 216 90 L216 180 Z" fill="#2d241b" stroke="#ead1a0" strokeWidth="1.5" opacity="0.8" />
-          {/* Travertine plinth & amber vessel */}
-          <rect x="136" y="128" width="48" height="52" fill="#d7cab5" stroke="#2b2420" strokeWidth="1.5" />
-          <ellipse cx="160" cy="112" rx="14" ry="18" fill="#de6e56" stroke="#f6c95b" strokeWidth="1.5" />
-          {isMonitor && (
-            <text x="20" y="34" fill="#ead1a0" fontFamily={FONT_MONO} fontSize="11" letterSpacing="1.5">
-              ACT 02 // ASTRAARC DESIGN
-            </text>
+          {/* Glowing Laser Morph Scanline */}
+          {morphProgress > 0.02 && morphProgress < 0.98 && (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${morphProgress * 100}%`,
+                top: 0,
+                bottom: 0,
+                width: 4,
+                background: UI.violet,
+                boxShadow: `0 0 24px 6px ${UI.violet}, 0 0 12px 2px #ffffff`,
+              }}
+            />
           )}
-        </svg>
-      );
+        </div>
+      )}
 
-    case 'matrix':
-      // Act 3: IMAX 16屏动态作品矩阵 — glowing emerald & gold 4x3 screen wall
-      return (
-        <svg viewBox="0 0 320 180" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <rect width="320" height="180" fill="#070c14" />
-          {Array.from({ length: 12 }, (_, idx) => {
-            const col = idx % 4;
-            const row = Math.floor(idx / 4);
-            const x = 18 + col * 73;
-            const y = 26 + row * 46;
-            const active = (idx + Math.floor(t * 4)) % 3 === 0;
-            const colors = ['#34d399', '#ead1a0', '#58b4e8', '#de6e56'];
-            const c = colors[idx % 4];
+      {/* SCENE 3: IMAX 16-SCREEN MOTION MATRIX */}
+      {scene === 'matrix' && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(circle at 50% 45%, #111c2d 0%, #05070b 80%)',
+            padding: '44px 58px 86px',
+            boxSizing: 'border-box',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateRows: 'repeat(3, 1fr)',
+            gap: 14,
+            transform: `perspective(1000px) rotateX(6deg) scale(${1 + beatPulse * 0.04})`,
+          }}
+        >
+          {[
+            '01 北迹星全景',
+            '02 NextLevel',
+            '03 FinanceJob',
+            '04 OntoGate',
+            '05 商业沙盘',
+            '06 品牌精工',
+            '07 AI 机械臂',
+            '08 光学镜头',
+            '09 战略雷达',
+            '10 价值流动',
+            '11 硅基穹顶',
+            '12 光弧终幕',
+          ].map((label, i) => {
+            const palette = [UI.goldBright, UI.emerald, UI.cyan, UI.magenta];
+            const c = palette[i % 4];
+            const hot = (i + Math.floor(t * 6)) % 4 === 0;
             return (
-              <g key={idx}>
-                <rect
-                  x={x}
-                  y={y}
-                  width="64"
-                  height="38"
-                  rx="5"
-                  fill={active ? '#162936' : '#0f1826'}
-                  stroke={active ? c : '#25364d'}
-                  strokeWidth={active ? 2 : 1.2}
-                />
-                <rect x={x + 8} y={y + 10} width="26" height="5" rx="2" fill={c} opacity="0.85" />
-                <rect x={x + 8} y={y + 20} width="44" height="4" rx="2" fill="#f8f2e7" opacity="0.35" />
-              </g>
+              <div
+                key={label}
+                style={{
+                  borderRadius: 10,
+                  background: hot ? 'rgba(26, 38, 56, 0.92)' : 'rgba(13, 18, 28, 0.85)',
+                  border: `1.5px solid ${hot ? c : '#253147'}`,
+                  boxShadow: hot ? `0 0 22px ${c}44` : undefined,
+                  padding: 12,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: c, fontWeight: 700 }}>
+                    JSX #{String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, opacity: hot ? 1 : 0.35 }} />
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#f8f2e7' }}>{label}</div>
+                <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${45 + ((i * 23 + Math.floor(t * 30)) % 55)}%`, background: c }} />
+                </div>
+              </div>
             );
           })}
-          {isMonitor && (
-            <text x="20" y="18" fill="#34d399" fontFamily={FONT_MONO} fontSize="10" letterSpacing="1.5">
-              ACT 03 // IMAX 16-SCREEN MATRIX
-            </text>
-          )}
-        </svg>
-      );
+        </div>
+      )}
 
-    case 'prism':
-      // Act 4: 光学棱镜神经折射 — crystalline prism splitting starlight beams
-      return (
-        <svg viewBox="0 0 320 180" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <rect width="320" height="180" fill="#0b0f1e" />
-          <line x1="0" y1="100" x2="145" y2="90" stroke="#f8f2e7" strokeWidth="3.5" opacity="0.9" />
+      {/* SCENE 4: NEURAL PRISM & INTELLIGENCE */}
+      {scene === 'prism' && (
+        <svg viewBox="0 0 960 540" width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
+          <rect width="960" height="540" fill="#060812" />
+          <line x1="0" y1="290" x2="415" y2="260" stroke="#ffffff" strokeWidth="6" opacity="0.92" />
           {[
-            { y: 52, c: '#34d399' },
-            { y: 78, c: '#58b4e8' },
-            { y: 104, c: '#ead1a0' },
-            { y: 130, c: '#de6e56' },
-          ].map((beam, i) => (
+            { y: 120, c: UI.emerald },
+            { y: 205, c: UI.cyan },
+            { y: 290, c: UI.goldBright },
+            { y: 375, c: UI.magenta },
+          ].map((b, i) => (
             <line
               key={i}
-              x1="175"
-              y1="90"
-              x2="320"
-              y2={beam.y + Math.sin(t * 3 + i) * 6}
-              stroke={beam.c}
-              strokeWidth="4"
-              opacity="0.85"
+              x1="540"
+              y1="260"
+              x2="960"
+              y2={b.y + Math.sin(t * 5 + i) * 14}
+              stroke={b.c}
+              strokeWidth="8"
+              opacity="0.88"
             />
           ))}
           <polygon
-            points="160,34 112,134 208,134"
-            fill="rgba(169, 153, 240, 0.22)"
-            stroke="#ead1a0"
-            strokeWidth="2.5"
+            points="480,95 350,375 610,375"
+            fill="rgba(168, 85, 247, 0.16)"
+            stroke={UI.gold}
+            strokeWidth="3.5"
           />
-          {isMonitor && (
-            <text x="20" y="30" fill="#a999f0" fontFamily={FONT_MONO} fontSize="11" letterSpacing="1.5">
-              ACT 04 // NEURAL INTELLIGENCE
-            </text>
-          )}
+          <text x="480" y="72" textAnchor="middle" fill={UI.gold} fontFamily={FONT_SERIF} fontSize="34" letterSpacing="10">
+            INTELLIGENCE
+          </text>
         </svg>
-      );
+      )}
 
-    case 'finale':
-      // Act 5: 终幕光弧商业建筑 — radiant Polaris golden arc + AstraArc emblem
-      return (
-        <svg viewBox="0 0 320 180" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+      {/* SCENE 5: ASTRAARC POLARIS FINALE */}
+      {scene === 'finale' && (
+        <svg viewBox="0 0 960 540" width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
           <defs>
-            <radialGradient id="finGlow" cx="50%" cy="62%" r="60%">
-              <stop offset="0%" stopColor="#f6c95b" stopOpacity="0.65" />
-              <stop offset="55%" stopColor="#1b2640" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#05070b" />
+            <radialGradient id="polarisFinaleGlow" cx="50%" cy="56%" r="56%">
+              <stop offset="0%" stopColor="#f6c95b" stopOpacity="0.45" />
+              <stop offset="48%" stopColor="#1b2640" stopOpacity="0.82" />
+              <stop offset="100%" stopColor="#05060a" />
             </radialGradient>
           </defs>
-          <rect width="320" height="180" fill="url(#finGlow)" />
-          <path
-            d="M24 148 Q160 22 296 148"
-            fill="none"
-            stroke="#ead1a0"
-            strokeWidth="3.5"
-            opacity="0.95"
-          />
-          <path
-            d="M52 154 Q160 54 268 154"
-            fill="none"
-            stroke="#34d399"
-            strokeWidth="1.8"
-            opacity="0.65"
-          />
-          <g transform={`translate(160, 78) scale(${1 + 0.08 * Math.sin(t * 5)})`}>
-            <path d="M0 -24 C3 -6 6 -3 24 0 C6 3 3 6 0 24 C-3 6 -6 3 -24 0 C-6 -3 -3 -6 0 -24 Z" fill="#f6c95b" />
+          <rect width="960" height="540" fill="url(#polarisFinaleGlow)" />
+          <path d="M80 420 Q480 80 880 420" fill="none" stroke={UI.gold} strokeWidth="3.5" opacity="0.95" />
+          <path d="M160 440 Q480 150 800 440" fill="none" stroke={UI.emerald} strokeWidth="1.8" opacity="0.55" />
+          <g transform={`translate(480, 210) scale(${1 + 0.08 * Math.sin(t * 5) + beatPulse * 0.1})`}>
+            <path d="M0 -56 C7 -14 14 -7 56 0 C14 7 7 14 0 56 C-7 14 -14 7 -56 0 C-14 -7 -7 -14 0 -56 Z" fill={UI.goldBright} />
+            <circle r="68" fill={UI.goldBright} opacity="0.12" />
           </g>
-          <text
-            x="160"
-            y="128"
-            textAnchor="middle"
-            fill="#f8f2e7"
-            fontFamily={FONT_SANS}
-            fontSize="16"
-            fontWeight="800"
-            letterSpacing="2"
-          >
-            ASTRAARC · 北迹星
+          <text x="480" y="330" textAnchor="middle" fill="#f8f2e7" fontFamily={FONT_SERIF} fontSize="54" fontWeight="700" letterSpacing="12">
+            ASTRAARC
           </text>
-          {isMonitor && (
-            <text
-              x="160"
-              y="148"
-              textAnchor="middle"
-              fill={COLORS.polarisGold}
-              fontFamily={FONT_SANS}
-              fontSize="10"
-              opacity="0.9"
-            >
-              让更好的商业想象，真正发生
-            </text>
-          )}
+          <text x="480" y="370" textAnchor="middle" fill={UI.gold} fontFamily={FONT_SANS} fontSize="22" letterSpacing="8">
+            北迹星 · 让更好的商业想象真正发生
+          </text>
         </svg>
-      );
-  }
+      )}
+
+      {/* Optional broadcast safe frame */}
+      {showSafeFrame && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 18,
+            border: '1px dashed rgba(234, 209, 160, 0.16)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
+      {/* Bilingual Bottom Subtitles (exact style of OpenChatCut screenshot) */}
+      {subtitleZh && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 36,
+            right: 36,
+            bottom: 18,
+            textAlign: 'center',
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            style={{
+              display: 'inline-block',
+              padding: subtitleError ? '4px 14px' : '2px 10px',
+              borderRadius: 6,
+              background: subtitleError ? 'rgba(239, 68, 68, 0.88)' : 'rgba(5, 6, 9, 0.62)',
+              border: subtitleError ? '1.5px solid #fecaca' : 'none',
+              color: '#ffffff',
+              fontSize: 19,
+              fontWeight: 600,
+              letterSpacing: 0.8,
+              textShadow: '0 2px 8px rgba(0,0,0,0.9)',
+            }}
+          >
+            {subtitleZh}
+          </div>
+          {subtitleEn && (
+            <div
+              style={{
+                marginTop: 3,
+                fontSize: 11,
+                color: 'rgba(248, 242, 231, 0.72)',
+                letterSpacing: 0.3,
+              }}
+            >
+              {subtitleEn}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Transition Lens Flash */}
+      {transitionFlash > 0.01 && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: `radial-gradient(circle, rgba(246, 201, 91, ${transitionFlash * 0.75}), transparent 72%)`,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+    </div>
+  );
 };
